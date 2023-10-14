@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 # Paths
 
@@ -14,6 +15,8 @@ DST_SCRIPT_FOLDER = "/home/clusternode/MininetScripts/"
 
 PARAMIKO_LOG_PATH = f"{NPS_PATH}/logs/paramiko.log"
 NPS_LOG_PATH = f"{NPS_PATH}/logs/nps.log"
+
+PYTHON_PATH = subprocess.run(['pipenv', '--venv'], capture_output=True, text=True).stdout.strip() + '/bin/python3'
 
 # Flags
 
@@ -34,3 +37,9 @@ NPS_CONTROL_NODE_IP = "10.0.2.100"
 MALWARE_MODE_ON = True
 MALWARE_CENTER_IP = NPS_CONTROL_NODE_IP
 MALWARE_CENTER_PORT = 56565
+
+# MININET SIMULATION MODES CONSTANTS
+CLI_MODE = True
+CLI_PROMPT_STRING = ""
+
+# Other

@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c37d2d398c6a8ed4e970239becb4867eb0e1836665822e7b765b621d0a69ca1b"
+            "sha256": "8eb8166fb81ecbfacc7f8507fa987ce3f5187bf0af0ade694d5127ae694cfcc1"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -406,6 +406,14 @@
             "index": "pypi",
             "version": "==0.2a5"
         },
+        "mininet": {
+            "hashes": [
+                "sha256:2175d04efa37dd6df86d1ff80e1f55d0d388c0edd0c8f0fc467c52a72799a85b",
+                "sha256:4d93983ab2709bf39764006d85b60b6ce1ee8897f8ebf1c3f848b7840f0632b8"
+            ],
+            "index": "pypi",
+            "version": "==2.3.0.dev6"
+        },
         "networkx": {
             "hashes": [
                 "sha256:4f33f68cb2afcf86f28a45f43efc27a9386b535d567d2127f8f61d51dec58d36",
@@ -577,6 +585,22 @@
             "index": "pypi",
             "markers": "python_version >= '3.8'",
             "version": "==1.0.0"
+        },
+        "scapy": {
+            "hashes": [
+                "sha256:5b260c2b754fd8d409ba83ee7aee294ecdbb2c235f9f78fe90bc11cb6e5debc2"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
+            "version": "==2.5.0"
+        },
+        "setuptools": {
+            "hashes": [
+                "sha256:4ac1475276d2f1c48684874089fefcd83bd7162ddaafb81fac866ba0db282a87",
+                "sha256:b454a35605876da60632df1a60f736524eb73cc47bbc9f3f1ef1b644de74fd2a"
+            ],
+            "markers": "python_version >= '3.8'",
+            "version": "==68.2.2"
         },
         "six": {
             "hashes": [

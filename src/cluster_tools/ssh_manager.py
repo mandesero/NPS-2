@@ -21,12 +21,11 @@ def open_ssh_to_node(node: Dict[str, Any]) -> None:
 def open_ssh_to_nodes(node_map):
     """Open SSH sessions to each node in cluster.
 
-    Args:
-        node_map: Cluster nodes map.
+    :param node_map: Cluster nodes map.
+    :type node_map:
 
-    Returns:
-        SSH session to cluster node map.
-        SSH session chan to cluster node map.
+    :return: SSH session to cluster node map, SSH session chan to cluster node map.
+    :rtype: tuple
     """
     ssh_map = {}
     ssh_chan_map = {}

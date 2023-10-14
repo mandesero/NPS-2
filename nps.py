@@ -8,8 +8,9 @@ from matplotlib import pyplot as plt
 from paramiko.util import log_to_file
 
 from config import *
-from src.cluster_tools import read_nodelist_from_file, get_networkx_graph, make_threaded
-from src.cluster_tools.ssh_manager import open_ssh_to_node
+from src.cluster_tools import read_nodelist_from_file, get_networkx_graph, make_threaded, cli_mode, \
+    send_mininet_cmd_to_cluster_node
+from src.cluster_tools.ssh_manager import open_ssh_to_node, close_ssh_to_nodes
 from src.cluster_tools.cmd_manager import send_support_scripts_to_cluster_node, \
     send_cmd_to_cluster_node, exec_start_up_script
 from src.mininet_tools import split_graph_on_parts, define_leaves_in_graph, \
@@ -128,3 +129,75 @@ class NPS:
         self.logger.info(f"Setting up cluster for {end_config_timestamp - self.begin_config_timestamp} sec.")
 
         # Simulation clusters step
+
+        if CLI_MODE:
+            self.cluster_info["switch_number"] = len(
+                set(nx_graph.nodes()).difference(set(leaves))
+            )
+            node_info = {}
+            for _id, group in self.groups.items():
+                if _id != "no_group":
+                    h_num = len(set(group["vertexes"]).intersection(leaves))
+                    sw_num = len(group["vertexes"]) - h_num
+                    node_info[_id] = (h_num, sw_num)
+            self.cluster_info["node_info"] = node_info
+            cli_mode(self.hosts, self.nodes, self.cluster_info)
+            self.logger.info("Turn OFF CLI interface...")
+
+        # Shutdown all cluster nodes.
+        make_threaded(
+            send_mininet_cmd_to_cluster_node,
+            [
+                "exit",
+            ],
+            self.nodes,
+        )
+        self.logger.info("Shutdown all cluster nodes. Sending exit to Mininet on nodes..."),
+
+        make_threaded(
+            send_cmd_to_cluster_node,
+            [
+                "ovs-vsctl list-br | xargs -L1 ovs-vsctl del-br",
+            ],
+            self.nodes,
+        )
+        self.logger.info("Deleting OVS bridges from cluster nodes..."),
+
+        make_threaded(
+            send_cmd_to_cluster_node,
+            [
+                "exit",
+            ],
+            self.nodes,
+        )
+        close_ssh_to_nodes(self.nodes)
+        self.logger.info("Close SSH session to all nodes in cluster..."),
+        self.logger.info("Finish simulating...")
+
+    def clean(self):
+        self.nodes = read_nodelist_from_file(NODELIST_FILE_PATH)
+        self.logger.info(f"Take cluster nodes...")
+
+        make_threaded(open_ssh_to_node, [], self.nodes)
+        self.logger.info("Open SSH to all nodes in cluster..."),
+
+        make_threaded(
+            send_cmd_to_cluster_node,
+            [
+                "ovs-vsctl list-br | xargs -L1 ovs-vsctl del-br",
+            ],
+            self.nodes,
+        )
+        self.logger.info("Deleting OVS bridges from cluster nodes..."),
+
+        make_threaded(
+            send_cmd_to_cluster_node,
+            [
+                "exit",
+            ],
+            self.nodes,
+        )
+        close_ssh_to_nodes(self.nodes)
+        self.logger.info("Close SSH session to all nodes in cluster..."),
+        self.logger.info("Clean done...")
+        exit(0)

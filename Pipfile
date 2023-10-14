@@ -10,6 +10,8 @@ matplotlib = "*"
 python-dotenv = "*"
 metis = "*"
 paramiko = "*"
+mininet = "*"
+scapy = "*"
 
 [dev-packages]
 

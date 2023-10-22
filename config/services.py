@@ -1,422 +1,451 @@
 #!/usr/bin/env python
 
 """
-Mininet example, based on mininet runner by Brandon Heller
-Creating mininet hosts, loaded with some network daemons (services)
-in a regular manner.
+Mininet runner
+author: Brandon Heller (brandonh@stanford.edu)
+
+To see options:
+  sudo mn -h
+
+Example to pull custom params (topo, switch, etc.) from a file:
+  sudo mn --custom ~/mininet/custom/custom_example.py
 """
 
-from optparse import OptionParser
 import os
 import sys
 import time
-import re
+
+from functools import partial
+from optparse import OptionParser  # pylint: disable=deprecated-module
+from sys import exit  # pylint: disable=redefined-builtin
 
 # Fix setuptools' evil madness, and open up (more?) security holes
 if 'PYTHONPATH' in os.environ:
-    sys.path = os.environ['PYTHONPATH'].split(':') + sys.path
+    sys.path = os.environ[ 'PYTHONPATH' ].split( ':' ) + sys.path
 
-MN_CFGDIR = '/home/netapps'
-MN_ETCDIR = 'etc'
-MN_VARDIR = 'var'
-MN_LOCKDIR = 'lock'
-MN_RUNDIR = 'run'
+# pylint: disable=wrong-import-position
 
-cfg_homepath = '/tmp'
-if 'HOME' is os.environ:
-    cfg_homepath = os.environ['HOME']
+from mininet.clean import cleanup
+import mininet.cli
+from mininet.log import lg, LEVELS, info, debug, warn, error, output
+from mininet.net import Mininet, MininetWithControlNet, VERSION
+from mininet.node import ( Host, CPULimitedHost, Controller, OVSController,
+                           Ryu, NOX, RemoteController, findController,
+                           DefaultController, NullController,
+                           UserSwitch, OVSSwitch, OVSBridge,
+                           IVSSwitch )
+from mininet.nodelib import LinuxBridge
+from mininet.link import Link, TCLink, TCULink, OVSLink
+from mininet.topo import ( SingleSwitchTopo, LinearTopo,
+                           SingleSwitchReversedTopo, MinimalTopo )
+from mininet.topolib import TreeTopo, TorusTopo
+from mininet.util import customClass, specialClass, splitArgs, buildTopo
 
-MN_CFGPATH = os.path.join(cfg_homepath, MN_CFGDIR)
-MN_ETCPATH = os.path.join(MN_CFGPATH, MN_ETCDIR)
-MN_VARPATH = os.path.join(MN_CFGPATH, MN_VARDIR)
-MN_LOCKPATH = os.path.join(MN_VARPATH, MN_LOCKDIR)
-MN_RUNPATH = os.path.join(MN_VARPATH, MN_RUNDIR)
+# Experimental! cluster edition prototype
+from mininet.examples.cluster import ( MininetCluster, RemoteHost,
+                                       RemoteOVSSwitch, RemoteLink,
+                                       SwitchBinPlacer, RandomPlacer,
+                                       ClusterCleanup )
+from mininet.examples.clustercli import ClusterCLI
 
-# from mininet.clean import cleanup
-from mininet.cli import CLI
-from mininet.log import info
-from mininet.net import Mininet, VERSION
 
-from mininet.node import (Host, CPULimitedHost, Controller, OVSController,
-                          NOX, RemoteController, UserSwitch, OVSKernelSwitch,
-                          OVSLegacyKernelSwitch)
+PLACEMENT = { 'block': SwitchBinPlacer, 'random': RandomPlacer }
 
-from mininet.link import Link, TCLink
-from mininet.topo import Topo
-from mininet.util import custom, customConstructor, irange, checkInt
+# built in topologies, created only when run
+TOPODEF = 'minimal'
+TOPOS = { 'minimal': MinimalTopo,
+          'linear': LinearTopo,
+          'reversed': SingleSwitchReversedTopo,
+          'single': SingleSwitchTopo,
+          'tree': TreeTopo,
+          'torus': TorusTopo }
 
-# from mininet.util import buildTopo
-
-SWITCHDEF = 'ovsk'
-SWITCHES = {'user': UserSwitch,
-            'ovsk': OVSKernelSwitch,
-            'ovsl': OVSLegacyKernelSwitch}
+SWITCHDEF = 'default'
+SWITCHES = { 'user': UserSwitch,
+             'ovs': OVSSwitch,
+             'ovsbr' : OVSBridge,
+             # Keep ovsk for compatibility with 2.0
+             'ovsk': OVSSwitch,
+             'ivs': IVSSwitch,
+             'lxbr': LinuxBridge,
+             'default': OVSSwitch }
 
 HOSTDEF = 'proc'
-HOSTS = {'proc': Host,
-         'rt': custom(CPULimitedHost, sched='rt'),
-         'cfs': custom(CPULimitedHost, sched='cfs')}
+HOSTS = { 'proc': Host,
+          'rt': specialClass( CPULimitedHost, defaults=dict( sched='rt' ) ),
+          'cfs': specialClass( CPULimitedHost, defaults=dict( sched='cfs' ) ) }
 
-CONTROLLERDEF = 'ovsc'
-CONTROLLERS = {'ref': Controller,
-               'ovsc': OVSController,
-               'nox': NOX,
-               'remote': RemoteController,
-               'none': lambda name: None}
+CONTROLLERDEF = 'default'
+CONTROLLERS = { 'ref': Controller,
+                'ovsc': OVSController,
+                'nox': NOX,
+                'remote': RemoteController,
+                'ryu': Ryu,
+                'default': DefaultController,  # Note: overridden below
+                'none': NullController }
 
 LINKDEF = 'default'
-LINKS = {'default': Link,
-         'tc': TCLink}
+LINKS = { 'default': Link,  # Note: overridden below
+          'tc': TCLink,
+          'tcu': TCULink,
+          'ovs': OVSLink }
 
-# preconfigured services
-# service description dictionary can have following sets of keys:
-# {cmd_start, [start_custom_opts], need_stop = False}
-# {cmd_start, [start_custom_opts], need_stop = True, cmd_stop = None }=> (killing by pid)
-# {cmd_start, [start_custom_opts], need_stop = True, cmd_stop, [stop_custom_opts]}
+# TESTS dict can contain functions and/or Mininet() method names
+# XXX: it would be nice if we could specify a default test, but
+# this may be tricky
+TESTS = { name: True
+          for name in ( 'pingall', 'pingpair', 'iperf', 'iperfudp' ) }
 
-SERVICES = {'dhcpd': {'cmd_start': 'dhcpd',
-                      'start_custom_opts': '--no-pid -cf %C/%N/etc/dhcp/dhcpd.mininet.conf',
-                      'cmd_stop': None,
-                      'need_stop': True
-                      },
-            'dhcp': {
-                'cmd_start': 'dhclient -r  ; ifconfig %h-eth0 0 ; sleep 10 ; dhclient -v --no-pid -lf %C/%N/%h/var/lib/dhcp/dhclient.leases %h-eth0',
-                'need_stop': False
-            },
-            'ntpd-srv': {'cmd_start': 'ntpd',
-                         'start_custom_opts': '-c %E/ntp.mininet.server.conf -f %R/ntp.mininet.%h.drift',
-                         'cmd_stop': None,
-                         'need_stop': True
-                         },
-            'ntpd-cli': {'cmd_start': 'ntpd',
-                         'start_custom_opts': '-c %E/ntp.mininet.client.conf -f %R/ntp.mininet.%h.drift',
-                         'cmd_stop': None,
-                         'need_stop': True
-                         }
-            }
+CLI = None  # Set below if needed
+
+# Locally defined tests
+def allTest( net ):
+    "Run ping and iperf tests"
+    net.start()
+    net.ping()
+    net.iperf()
+
+def nullTest( _net ):
+    "Null 'test' (does nothing)"
+    pass
 
 
-class cmdStrSubst(object):
-    def __init__(self, escchar='%', **kwargs):
-        self.ec = escchar
-        self.hecd = {'C': MN_CFGPATH, 'E': MN_ETCPATH, 'V': MN_VARPATH,
-                     'L': MN_LOCKPATH, 'R': MN_RUNPATH}
-        # %N stands for servicename
-        self.reinit(escchar=escchar, **kwargs)
+TESTS.update( all=allTest, none=nullTest, build=nullTest )
 
-    def reinit(self, escchar='%', host_obj=None, a_mecd={}, **kwargs):
-        self.ecd = {}
-        self.mecd = {}
-        self.mecd.update(kwargs)
-        self.mecd.update(a_mecd)
-        self.ecd[self.ec] = self.ec
-        if host_obj:
-            self.gen_default_host_dict(host_obj)
-        self.ecd.update(self.hecd)
-        # manual overlay for dict setup, constants only!
-        self.ecd.update(self.mecd)
+# Map to alternate spellings of Mininet() methods
+ALTSPELLING = { 'pingall': 'pingAll', 'pingpair': 'pingPair',
+                'iperfudp': 'iperfUdp' }
 
-    def gen_default_host_dict(self, host_obj):
-        # try block?
-        self.hecd['h'] = host_obj.name
-        self.hecd['i'] = str(host_obj.IP())
-        self.hecd['m'] = str(host_obj.MAC())
-        return self.hecd
-
-    def res_compile(self):
-        self.ecd = {}
-        self.ecd[self.ec] = self.ec
-        self.ecd.update(self.hecd)
-        self.ecd.update(self.mecd)
-        # print "res_compile fin dict>>", self.ecd
-        return re.compile('(' + self.ec + '[' + "".join(self.ecd.keys()) + '])')
-
-    def repl_concurrent(self, fstr):
-        # fstr -- format string to convert
-        # print "repl_concurrent>> "
-        self.res = self.res_compile()
-        l = self.res.split(fstr)
-        r = map(lambda i: self.ecd.get(i[1], i) \
-            if len(i) == 2 and i[0] == self.ec else i, l)
-        return "".join(r)
-
-    def add_ec_pair(self, k, v):
-        self.mecd[k] = v
-
-    def remove_ec_pair(self, k):
-        self.mecd.pop(k, 1)
-
-    def add_ec_pairs(self, **kwargs):
-        self.mecd.update(kwargs)
-
-    def add_ec_dict(self, exd):
-        self.mecd.update(exd)
-
-    def clean_ec_dict(self):
-        self.mecd = {}
+def runTests( mn, options ):
+    """Run tests
+       mn: Mininet object
+       option: list of test optinos """
+    # Split option into test name and parameters
+    for option in options:
+        # Multiple tests may be separated by '+' for now
+        for test in option.split( '+' ):
+            test, args, kwargs = splitArgs( test )
+            test = ALTSPELLING.get( test.lower(), test )
+            testfn = TESTS.get( test, test )
+            if callable( testfn ):
+                testfn( mn, *args, **kwargs )
+            elif hasattr( mn, test ):
+                getattr( mn, test )( *args, **kwargs )
+            else:
+                raise Exception( 'Test %s is unknown - please specify one of '
+                                 '%s ' % ( test, TESTS.keys() ) )
 
 
-# switch s0 supposed to handle all 'special' service hosts 'hs#'
-# still one can define services on other hosts, no restrictions
-# switch s0 is also a root switch for other switches
-class LinearConnectTopo(Topo):
-    "Topology for one linear Mininet segment"
+def addDictOption( opts, choicesDict, default, name, **kwargs ):
+    """Convenience function to add choices dicts to OptionParser.
+       opts: OptionParser instance
+       choicesDict: dictionary of valid choices, must include default
+       default: default choice key
+       name: long option name
+       kwargs: additional arguments to add_option"""
+    helpStr = ( '|'.join( sorted( choicesDict.keys() ) ) +
+                '[,param=value...]' )
+    helpList = [ '%s=%s' % ( k, v.__name__ )
+                 for k, v in choicesDict.items() ]
+    helpStr += ' ' + ( ' '.join( helpList ) )
+    params = dict( type='string', default=default, help=helpStr )
+    params.update( **kwargs )
+    opts.add_option( '--' + name, **params )
 
-    def __init__(self, N, S, **params):
-
-        Topo.__init__(self, **params)
-
-        switch = self.addSwitch('s0')
-        # server host for sample
-        hs = self.addHost('hs%s' % '0')
-        self.addLink(hs, switch)
-
-        for sw in irange(1, S):
-            hosts = [self.addHost('h%s' % h) for h in irange((sw - 1) * N + 1, sw * N)]
-            switchS = self.addSwitch('s' + str(sw))
-            print(switchS)
-            self.addLink(switch, switchS)
-            for host in hosts:
-                self.addLink(host, switchS)
+def version( *_args ):
+    "Print Mininet version and exit"
+    output( "%s\n" % VERSION )
+    exit()
 
 
-# devoted services class
-class mnServices(object):
-    def __init__(self):
-        self.services = {}
-        # checks for existance on the base of SERVICES progs?
-        self.cSP = cmdStrSubst()
-
-    def add_preconf_service(self, hostname, prio, service_id):
-        if not checkInt(prio):
-            return False
-        if service_id not in SERVICES.keys():
-            print >> sys.stderr, "Unknown preconfigured service %s" % str(service_id)
-            return False
-        return self.do_add_service(hostname, int(prio), SERVICES[service_id],
-                                   cSP_cd={'N': service_id})
-
-    def add_service(self, hostname, prio, service_args_dict, cSP_cdict=None):
-        if not checkInt(prio):
-            return False
-        # obscure service description dictionary logic check
-        if 'cmd_start' not in service_args_dict.keys():
-            print >> sys.stderr, "Customized service for %s lacks cmd_start string" % self.h
-            return False
-        if 'need_stop' not in service_args_dict.keys():
-            print >> sys.stderr, "Customized service for %s lacks need_stop bool" % self.h
-            return False
-        if not service_args_dict['need_stop']:
-            return self.do_add_service(hostname, int(prio), service_args_dict)
-        # need_stop == False
-        if 'cmd_stop' not in service_args_dict.keys():
-            print >> sys.stderr, "Customized service for %s lacks cmd_stop bool" % self.h
-            return False
-        return self.do_add_service(hostname, int(prio), service_args_dict, cSP_cd=cSP_cdict)
-
-    def do_add_service(self, hostname, prio, service_args_dict, cSP_cd=None):
-        # services is a dictionary of lists by priority
-        # each list contains dictionaries, describing particular service
-        # on particular host instance
-        if prio not in self.services.keys():
-            self.services[prio] = []
-        # prepare entry
-        s_entry = service_args_dict.copy()
-        s_entry['host'] = hostname
-        s_entry['pid'] = None
-        s_entry['cSP_cdict'] = cSP_cd
-        self.services[prio].append(s_entry)
-        print
-        "Service added"
-        return True
-
-    def start_services(self, nameToNode):
-        for p in sorted(self.services):
-            print
-            "Start_services main loop"
-            os.system('tc qdisc add dev eth1 root handle 1:1 netem delay 120ms')
-            for hsi_d in self.services[p]:
-                h = nameToNode[hsi_d['host']]
-                self.cSP.reinit(host_obj=h)
-                if hsi_d['cSP_cdict']:
-                    self.cSP.add_ec_dict(hsi_d['cSP_cdict'])
-                cmdl = [hsi_d['cmd_start']]
-                if 'start_custom_opts' in hsi_d.keys():
-                    cmdl.append(hsi_d['start_custom_opts'])
-                # no pid back yet!
-                # >>regexp
-                # print "cmdl to translate: ", cmdl
-                cmdfin = map(lambda x: self.cSP.repl_concurrent(x), cmdl)
-                # print "cmdfin to launch: " , cmdfin
-                h.cmd(cmdfin)
-            #               h.cmd(map(lambda x: self.cSP.repl_concurrent(x), cmdl))
-            time.sleep(2)  # <<Ought to have barrier here
-        print
-        "Services started"
-        return True
-
-    def stop_services(self, nameToNode):
-        for p in sorted(self.services):
-            for hsi_d in self.services[p]:
-                if not hsi_d['need_stop']:
-                    continue
-                h = nameToNode[hsi_d['host']]
-                self.cSP.reinit(host_obj=h)
-                if not hsi_d['cmd_stop']:
-                    continue
-                cmdl = [hsi_d['cmd_stop']]
-                if 'stop_custom_opts' in hsi_d.keys():
-                    cmdl.append(hsi_d['stop_custom_opts'])
-                # no pid back yet!
-                # >>regexp
-                # h.cmd(cmdl)
-                h.cmd(map(lambda x: self.cSP.repl_concurrent(x), cmdl))
-        return True
-
-
-# wrapper class for Mininet to incorporate services launcher
-# 'example' style solution only!
-# Normaly ought to be implemented through core classes. Not wrapper!
-#
-class wrpMininet(Mininet):
-    def __init__(self, *pargs, **kwargs):
-
-        # extra args support
-        self.service_factory = None
-        self.service_flag = kwargs.pop('services', None)
-        if self.service_flag:
-            self.service_factory = mnServices()
-        Mininet.__init__(self, *pargs, **kwargs)
-
-    def start(self):
-        Mininet.start(self)
-        # services unrolling
-        self.start_services()
-
-    def stop(self):
-        # services shutdown
-        self.stop_services()
-        Mininet.stop(self)
-
-    def verify_hostname(self, hostname):
-        try:
-            h = str(hostname)
-            return True
-        except ValueError:
-            print >> sys.stderror, "Wrong hostname"
-            return False
-        if h not in self.nameToNode.keys():
-            print >> sys.stderr, "Unknown host %s" % h
-            return False
-        return True
-
-    def add_preconf_service(self, hostname, *args):
-        if self.service_factory and self.verify_hostname(hostname):
-            return self.service_factory.add_preconf_service(str(hostname), *args)
-        return False
-
-    def add_service(self, hostname, *args):
-        if self.service_factory and self.verify_hostname(hostname):
-            return self.service_factory.add_service(str(hostname), *args)
-        return False
-
-    def start_services(self):
-        if not self.service_factory:
-            return False
-        ret = self.service_factory.start_services(self.nameToNode)
-        # update IPs of all hosts inside of mininet structures
-        # very dirty fix
-        for h in self.hosts:
-            h.defaultIntf().updateIP()
-        return ret
-
-    def stop_services(self):
-        if not self.service_factory:
-            return False
-        return self.service_factory.stop_services(self.nameToNode)
-
-
-class MininetRunner(object):
+class MininetRunner( object ):
     "Build, setup, and run Mininet."
 
-    def __init__(self):
+    def __init__( self ):
         "Init."
-        # N -- number of hosts per switch
-        # S -- number of switches sitting on root switch
-        self.N = 2
-        self.S = 3
-
         self.options = None
         self.args = None  # May be used someday for more CLI scripts
         self.validate = None
 
+        self.parseArgs()
+        self.setup()
         self.begin()
 
-    def setCustom(self, name, value):
+    def custom( self, _option, _opt_str, value, _parser ):
+        """Parse custom file and add params.
+           option: option e.g. --custom
+           opt_str: option string e.g. --custom
+           value: the value the follows the option
+           parser: option parser instance"""
+        files = []
+        if os.path.isfile( value ):
+            # Accept any single file (including those with commas)
+            files.append( value )
+        else:
+            # Accept a comma-separated list of filenames
+            files += value.split(',')
+
+        for fileName in files:
+            customs = {}
+            if os.path.isfile( fileName ):
+                # pylint: disable=exec-used
+                with open( fileName ) as f:
+                    exec( compile( f.read(), fileName, 'exec' ),
+                          customs, customs )
+                for name, val in customs.items():
+                    self.setCustom( name, val )
+            else:
+                raise Exception( 'could not find custom file: %s' % fileName )
+
+    def setCustom( self, name, value ):
         "Set custom parameters for MininetRunner."
-        if name in ('topos', 'switches', 'hosts', 'controllers'):
+        if name in ( 'topos', 'switches', 'hosts', 'controllers', 'links'
+                     'testnames', 'tests' ):
             # Update dictionaries
             param = name.upper()
-            globals()[param].update(value)
+            globals()[ param ].update( value )
         elif name == 'validate':
             # Add custom validate function
             self.validate = value
         else:
             # Add or modify global variable or class
-            globals()[name] = value
+            globals()[ name ] = value
 
-    def parseCustomFile(self, fileName):
-        "Parse custom file and add params before parsing cmd-line options."
-        customs = {}
-        if os.path.isfile(fileName):
-            execfile(fileName, customs, customs)
-            for name, val in customs.iteritems():
-                self.setCustom(name, val)
+    def setNat( self, _option, opt_str, value, parser ):
+        "Set NAT option(s)"
+        assert self  # satisfy pylint
+        parser.values.nat = True
+        # first arg, first char != '-'
+        if parser.rargs and parser.rargs[ 0 ][ 0 ] != '-':
+            value = parser.rargs.pop( 0 )
+            _, args, kwargs = splitArgs( opt_str + ',' + value )
+            parser.values.nat_args = args
+            parser.values.nat_kwargs = kwargs
         else:
-            raise Exception('could not find custom file: %s' % fileName)
+            parser.values.nat_args = []
+            parser.values.nat_kwargs = {}
 
-    def begin(self):
+    def parseArgs( self ):
+        """Parse command-line args and return options object.
+           returns: opts parse options dict"""
+
+        desc = ( "The %prog utility creates Mininet network from the\n"
+                 "command line. It can create parametrized topologies,\n"
+                 "invoke the Mininet CLI, and run tests." )
+
+        usage = ( '%prog [options]\n'
+                  '(type %prog -h for details)' )
+
+        opts = OptionParser( description=desc, usage=usage )
+        addDictOption( opts, SWITCHES, SWITCHDEF, 'switch' )
+        addDictOption( opts, HOSTS, HOSTDEF, 'host' )
+        addDictOption( opts, CONTROLLERS, [], 'controller', action='append' )
+        addDictOption( opts, LINKS, LINKDEF, 'link' )
+        addDictOption( opts, TOPOS, TOPODEF, 'topo' )
+
+        opts.add_option( '--clean', '-c', action='store_true',
+                         default=False, help='clean and exit' )
+        opts.add_option( '--custom', action='callback',
+                         callback=self.custom,
+                         type='string',
+                         help='read custom classes or params from .py file(s)'
+                         )
+        opts.add_option( '--test', default=[], action='append',
+                         dest='test', help='|'.join( TESTS.keys() ) )
+        opts.add_option( '--xterms', '-x', action='store_true',
+                         default=False, help='spawn xterms for each node' )
+        opts.add_option( '--ipbase', '-i', type='string', default='10.0.0.0/8',
+                         help='base IP address for hosts' )
+        opts.add_option( '--mac', action='store_true',
+                         default=False, help='automatically set host MACs' )
+        opts.add_option( '--arp', action='store_true',
+                         default=False, help='set all-pairs ARP entries' )
+        opts.add_option( '--verbosity', '-v', type='choice',
+                         choices=list( LEVELS.keys() ), default = 'info',
+                         help = '|'.join( LEVELS.keys() )  )
+        opts.add_option( '--innamespace', action='store_true',
+                         default=False, help='sw and ctrl in namespace?' )
+        opts.add_option( '--listenport', type='int', default=6654,
+                         help='base port for passive switch listening' )
+        opts.add_option( '--nolistenport', action='store_true',
+                         default=False, help="don't use passive listening " +
+                         "port")
+        opts.add_option( '--pre', type='string', default=None,
+                         help='CLI script to run before tests' )
+        opts.add_option( '--post', type='string', default=None,
+                         help='CLI script to run after tests' )
+        opts.add_option( '--pin', action='store_true',
+                         default=False, help="pin hosts to CPU cores "
+                         "(requires --host cfs or --host rt)" )
+        opts.add_option( '--nat', action='callback', callback=self.setNat,
+                         help="[option=val...] adds a NAT to the topology that"
+                         " connects Mininet hosts to the physical network."
+                         " Warning: This may route any traffic on the machine"
+                         " that uses Mininet's"
+                         " IP subnet into the Mininet network."
+                         " If you need to change"
+                         " Mininet's IP subnet, see the --ipbase option." )
+        opts.add_option( '--version', action='callback', callback=version,
+                         help='prints the version and exits' )
+        opts.add_option( '--wait', '-w', action='store_true',
+                         default=False, help='wait for switches to connect' )
+        opts.add_option( '--twait', '-t', action='store', type='int',
+                         dest='wait',
+                         help='timed wait (s) for switches to connect' )
+        opts.add_option( '--cluster', type='string', default=None,
+                         metavar='server1,server2...',
+                         help=( 'run on multiple servers (experimental!)' ) )
+        opts.add_option( '--placement', type='choice',
+                         choices=list( PLACEMENT.keys() ), default='block',
+                         metavar='block|random',
+                         help=( 'node placement for --cluster '
+                                '(experimental!) ' ) )
+
+        self.options, self.args = opts.parse_args()
+
+        # We don't accept extra arguments after the options
+        if self.args:
+            opts.print_help()
+            exit()
+
+    def setup( self ):
+        "Setup and validate environment."
+
+        # set logging verbosity
+        if LEVELS[self.options.verbosity] > LEVELS['output']:
+            warn( '*** WARNING: selected verbosity level (%s) will hide CLI '
+                    'output!\n'
+                    'Please restart Mininet with -v [debug, info, output].\n'
+                    % self.options.verbosity )
+        lg.setLogLevel( self.options.verbosity )
+
+    # Maybe we'll reorganize this someday...
+    # pylint: disable=too-many-branches,too-many-statements,global-statement
+
+    def begin( self ):
         "Create and run mininet."
+
+        global CLI
+
+        opts = self.options
+
+        if opts.cluster:
+            servers = opts.cluster.split( ',' )
+            for server in servers:
+                ClusterCleanup.add( server )
+
+        if opts.clean:
+            cleanup()
+            exit()
 
         start = time.time()
 
-        topo = LinearConnectTopo(N=self.N, S=self.S)
-        switch = customConstructor(SWITCHES, SWITCHDEF)
-        host = customConstructor(HOSTS, HOSTDEF)
-        controller = customConstructor(CONTROLLERS, CONTROLLERDEF)
-        link = customConstructor(LINKS, LINKDEF)
+        if not opts.controller:
+            # Update default based on available controllers
+            CONTROLLERS[ 'default' ] = findController()
+            opts.controller = [ 'default' ]
+            if not CONTROLLERS[ 'default' ]:
+                opts.controller = [ 'none' ]
+                if opts.switch == 'default':
+                    info( '*** No default OpenFlow controller found '
+                          'for default switch!\n' )
+                    info( '*** Falling back to OVS Bridge\n' )
+                    opts.switch = 'ovsbr'
+                elif opts.switch not in ( 'ovsbr', 'lxbr' ):
+                    raise Exception( "Could not find a default controller "
+                                     "for switch %s" %
+                                     opts.switch )
 
-        inNamespace = False
-        Net = wrpMininet
-        ipBase = '10.0.0.0/8'
-        listenPort = 6634
+        topo = buildTopo( TOPOS, opts.topo )
+        switch = customClass( SWITCHES, opts.switch )
+        host = customClass( HOSTS, opts.host )
+        controller = [ customClass( CONTROLLERS, c )
+                       for c in opts.controller ]
 
-        mn = Net(topo=topo,
-                 switch=switch, host=host, controller=controller,
-                 link=link,
-                 ipBase=ipBase,
-                 inNamespace=inNamespace,
-                 listenPort=listenPort,
-                 services=True)
+        if opts.switch == 'user' and opts.link == 'default':
+            debug( '*** Using TCULink with UserSwitch\n' )
+            # Use link configured correctly for UserSwitch
+            opts.link = 'tcu'
 
-        # Add services here
-        #        mn.add_preconf_service( 'hs0', 1 , 'dhcpd' )
-        # ADD cmdStrSubst modification to preconf_service
-        # mn.add_preconf_service( 'hs0', 3 , 'ntpd-srv' )
+        link = customClass( LINKS, opts.link )
 
-        #        for swi in irange( 1, self.S):
-        #            hl = [ ('h%s' % h ) for h in irange((swi - 1) * self.N + 1, swi * self.N) ]
-        #            for hn in hl:
-        #                mn.add_preconf_service( hn, 2, 'dhclient' )
-        # mn.add_preconf_service( hn, 4, 'ntpd-cli' )
+        if self.validate:
+            self.validate( opts )
+
+        if opts.nolistenport:
+            opts.listenport = None
+
+        # Handle innamespace, cluster options
+        if opts.innamespace and opts.cluster:
+            error( "Please specify --innamespace OR --cluster\n" )
+            exit()
+        Net = MininetWithControlNet if opts.innamespace else Mininet
+        if opts.cluster:
+            warn( '*** WARNING: Experimental cluster mode!\n'
+                  '*** Using RemoteHost, RemoteOVSSwitch, RemoteLink\n' )
+            host, switch, link = RemoteHost, RemoteOVSSwitch, RemoteLink
+            Net = partial( MininetCluster, servers=servers,
+                           placement=PLACEMENT[ opts.placement ] )
+            mininet.cli.CLI = ClusterCLI
+
+        # Wait for controllers to connect unless we're running null test
+        if ( opts.test and opts.test != [ 'none' ] and
+             isinstance( opts.wait, bool ) ):
+            opts.wait = True
+
+        mn = Net( topo=topo,
+                  switch=switch, host=host, controller=controller, link=link,
+                  ipBase=opts.ipbase, inNamespace=opts.innamespace,
+                  xterms=opts.xterms, autoSetMacs=opts.mac,
+                  autoStaticArp=opts.arp, autoPinCpus=opts.pin,
+                  waitConnected=opts.wait,
+                  listenPort=opts.listenport )
+
+        if opts.ensure_value( 'nat', False ):
+            with open( '/etc/resolv.conf' ) as f:
+                if 'nameserver 127.' in f.read():
+                    warn( '*** Warning: loopback address in /etc/resolv.conf '
+                          'may break host DNS over NAT\n')
+            mn.addNAT( *opts.nat_args, **opts.nat_kwargs ).configDefault()
+
+        # --custom files can set CLI or change mininet.cli.CLI
+        CLI = mininet.cli.CLI if CLI is None else CLI
+
+        if opts.pre:
+            CLI( mn, script=opts.pre )
 
         mn.start()
-        CLI(mn)
+
+        if opts.test:
+            runTests( mn, opts.test )
+        else:
+            CLI( mn )
+
+        if opts.post:
+            CLI( mn, script=opts.post )
+
         mn.stop()
 
-        elapsed = float(time.time() - start)
-        info('completed in %0.3f seconds\n' % elapsed)
+        elapsed = float( time.time() - start )
+        info( 'completed in %0.3f seconds\n' % elapsed )
 
 
 if __name__ == "__main__":
-    MininetRunner()
+    try:
+        MininetRunner()
+    except KeyboardInterrupt:
+        info( "\n\nKeyboard Interrupt. Shutting down and cleaning up...\n\n")
+        cleanup()
+    except Exception:  # pylint: disable=broad-except
+        # Print exception
+        type_, val_, trace_ = sys.exc_info()
+        errorMsg = ( "-"*80 + "\n" +
+                     "Caught exception. Cleaning up...\n\n" +
+                     "%s: %s\n" % ( type_.__name__, val_ ) +
+                     "-"*80 + "\n" )
+        error( errorMsg )
+        # Print stack trace to debug log
+        import traceback
+        stackTrace = traceback.format_exc()
+        debug( stackTrace + "\n" )
+        cleanup()

@@ -140,7 +140,7 @@ def send_mn_turn_on_cmd_to_cluster_node(node: Dict[str, Any]) -> None:
     :type node: Dict[str, str]
     """
     turn_on_mininet_script_name = "turn_on_script_for_" + node["IP"] + ".py"
-    cmd = "python " + DST_SCRIPT_FOLDER + turn_on_mininet_script_name
+    cmd = "python3 " + DST_SCRIPT_FOLDER + turn_on_mininet_script_name
     cmd += "\n"
     node["ssh_chan"].send(cmd)
     buff = ""

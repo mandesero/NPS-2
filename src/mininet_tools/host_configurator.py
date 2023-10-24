@@ -1,6 +1,6 @@
 from typing import Dict, List, Union, Any
 
-from config import FIRST_HOST_IP
+from config import FIRST_HOST_IP, BASE_INTERFACE
 from src.cluster_tools import get_next_ip_pool, get_next_ip
 from src.cluster_tools.mininet_cmd_manager import send_mininet_cmd_to_cluster_node
 
@@ -63,14 +63,14 @@ def host_process_configurator_nodegroup(node, groups, CIDR_mask, leaves, hosts):
         if vertex in leaves:
             # reset config on host interface
             curr_host = "h" + str(vertex)
-            cmd = curr_host + " ifconfig " + curr_host + "-eth0 0"
+            cmd = curr_host + " ifconfig " + curr_host + f"-eth0 0"
             send_mininet_cmd_to_cluster_node(node, cmd)
             # config new IP address on host interface
             cmd = (
                     curr_host
                     + " ifconfig "
                     + curr_host
-                    + "-eth0 "
+                    + f"-eth0 "
                     + curr_host_ip
                     + "/"
                     + CIDR_mask

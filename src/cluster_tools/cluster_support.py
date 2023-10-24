@@ -148,7 +148,7 @@ def make_threaded(function: callable, args: List[Any], nodes: Dict[str, Dict[str
     :type nodes: Dict[str, Dict[str, str]]
     """
     threads = []
-    for node_label in nodes:
+    for node_label in nodes.values():
         thread = KThread(target=function, args=(node_label, *args))
         threads.append(thread)
 

@@ -32,7 +32,7 @@ from mininet.net import Mininet, MininetWithControlNet, VERSION
 from mininet.node import ( Host, CPULimitedHost, Controller, OVSController,
                            Ryu, NOX, RemoteController, findController,
                            DefaultController, NullController,
-                           UserSwitch, OVSSwitch, OVSBridge,
+                           UserSwitch, OVSSwitch, OVSBridge, OVSKernelSwitch,
                            IVSSwitch )
 from mininet.nodelib import LinuxBridge
 from mininet.link import Link, TCLink, TCULink, OVSLink
@@ -60,12 +60,12 @@ TOPOS = { 'minimal': MinimalTopo,
           'tree': TreeTopo,
           'torus': TorusTopo }
 
-SWITCHDEF = 'default'
+SWITCHDEF = 'ovsk'
 SWITCHES = { 'user': UserSwitch,
              'ovs': OVSSwitch,
+             'ovsk': OVSKernelSwitch,
              'ovsbr' : OVSBridge,
              # Keep ovsk for compatibility with 2.0
-             'ovsk': OVSSwitch,
              'ivs': IVSSwitch,
              'lxbr': LinuxBridge,
              'default': OVSSwitch }
@@ -75,7 +75,7 @@ HOSTS = { 'proc': Host,
           'rt': specialClass( CPULimitedHost, defaults=dict( sched='rt' ) ),
           'cfs': specialClass( CPULimitedHost, defaults=dict( sched='cfs' ) ) }
 
-CONTROLLERDEF = 'default'
+CONTROLLERDEF = 'ovsc'
 CONTROLLERS = { 'ref': Controller,
                 'ovsc': OVSController,
                 'nox': NOX,

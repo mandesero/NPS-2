@@ -39,18 +39,17 @@ from mininet.net import Mininet, VERSION
 
 from mininet.node import (Host, CPULimitedHost, Controller, OVSController,
                           NOX, RemoteController, UserSwitch, OVSKernelSwitch,
-                          OVSLegacyKernelSwitch)
+                          )
 
 from mininet.link import Link, TCLink
 from mininet.topo import Topo
-from mininet.util import custom, customConstructor, irange, checkInt
+from mininet.util import custom, irange, checkInt
 
 # from mininet.util import buildTopo
 
 SWITCHDEF = 'ovsk'
 SWITCHES = {'user': UserSwitch,
-            'ovsk': OVSKernelSwitch,
-            'ovsl': OVSLegacyKernelSwitch}
+            'ovsk': OVSKernelSwitch}
 
 HOSTDEF = 'proc'
 HOSTS = {'proc': Host,
@@ -128,12 +127,10 @@ class cmdStrSubst(object):
         self.ecd[self.ec] = self.ec
         self.ecd.update(self.hecd)
         self.ecd.update(self.mecd)
-        # print "res_compile fin dict>>", self.ecd
         return re.compile('(' + self.ec + '[' + "".join(self.ecd.keys()) + '])')
 
     def repl_concurrent(self, fstr):
         # fstr -- format string to convert
-        # print "repl_concurrent>> "
         self.res = self.res_compile()
         l = self.res.split(fstr)
         r = map(lambda i: self.ecd.get(i[1], i) \
@@ -168,11 +165,11 @@ class LinearConnectTopo(Topo):
 
         switch = self.addSwitch('s0')
         # server host for sample
-        hs = self.addHost('hs%s' % '0')
+        hs = self.addHost('hs0')
         self.addLink(hs, switch)
 
         for sw in irange(1, S):
-            hosts = [self.addHost('h%s' % h) for h in irange((sw - 1) * N + 1, sw * N)]
+            hosts = [self.addHost(f'h{h}') for h in irange((sw - 1) * N + 1, sw * N)]
             switchS = self.addSwitch('s' + str(sw))
             print(switchS)
             self.addLink(switch, switchS)
@@ -191,7 +188,7 @@ class mnServices(object):
         if not checkInt(prio):
             return False
         if service_id not in SERVICES.keys():
-            print >> sys.stderr, "Unknown preconfigured service %s" % str(service_id)
+            print(f"Unknown preconfigured service {service_id}", file=sys.stderr)
             return False
         return self.do_add_service(hostname, int(prio), SERVICES[service_id],
                                    cSP_cd={'N': service_id})
@@ -201,16 +198,16 @@ class mnServices(object):
             return False
         # obscure service description dictionary logic check
         if 'cmd_start' not in service_args_dict.keys():
-            print >> sys.stderr, "Customized service for %s lacks cmd_start string" % self.h
+            print(f"Customized service for {self.h} lacks cmd_start string", file=sys.stderr)
             return False
         if 'need_stop' not in service_args_dict.keys():
-            print >> sys.stderr, "Customized service for %s lacks need_stop bool" % self.h
+            print(f"Customized service for {self.h} lacks need_stop bool")
             return False
         if not service_args_dict['need_stop']:
             return self.do_add_service(hostname, int(prio), service_args_dict)
         # need_stop == False
         if 'cmd_stop' not in service_args_dict.keys():
-            print >> sys.stderr, "Customized service for %s lacks cmd_stop bool" % self.h
+            print(f"Customized service for {self.h} lacks cmd_stop bool")
             return False
         return self.do_add_service(hostname, int(prio), service_args_dict, cSP_cd=cSP_cdict)
 
@@ -226,14 +223,12 @@ class mnServices(object):
         s_entry['pid'] = None
         s_entry['cSP_cdict'] = cSP_cd
         self.services[prio].append(s_entry)
-        print
-        "Service added"
+        print("Service added")
         return True
 
     def start_services(self, nameToNode):
         for p in sorted(self.services):
-            print
-            "Start_services main loop"
+            print("Start_services main loop")
             os.system('tc qdisc add dev eth1 root handle 1:1 netem delay 120ms')
             for hsi_d in self.services[p]:
                 h = nameToNode[hsi_d['host']]
@@ -251,8 +246,7 @@ class mnServices(object):
                 h.cmd(cmdfin)
             #               h.cmd(map(lambda x: self.cSP.repl_concurrent(x), cmdl))
             time.sleep(2)  # <<Ought to have barrier here
-        print
-        "Services started"
+        print("Services started")
         return True
 
     def stop_services(self, nameToNode):
@@ -303,10 +297,10 @@ class wrpMininet(Mininet):
             h = str(hostname)
             return True
         except ValueError:
-            print >> sys.stderror, "Wrong hostname"
+            print("Wrong hostname", file=sys.stderr)
             return False
         if h not in self.nameToNode.keys():
-            print >> sys.stderr, "Unknown host %s" % h
+            print(f"Unknown host {h}", file=sys.stderr)
             return False
         return True
 

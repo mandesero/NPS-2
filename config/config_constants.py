@@ -43,3 +43,5 @@ CLI_MODE = True
 CLI_PROMPT_STRING = ""
 
 # Other
+
+BASE_INTERFACE = "enp0s8"

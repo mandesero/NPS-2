@@ -186,7 +186,7 @@ def gen_mn_ns_script_by_template(
     file.write("\n")
     file.write("def version( *_args ):\n")
     file.write('    "Print Mininet version and exit"\n')
-    file.write('    print "%s" % VERSION\n')
+    file.write('    print(VERSION)\n')
     file.write("    exit()\n")
     file.write("\n")
     file.write("class MininetRunner( object ):\n")

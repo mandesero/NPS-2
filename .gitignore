@@ -2,3 +2,4 @@ logs
 scripts/nodes/*
 config/groups.txt
 config/hosts.txt
+*/__pycache__

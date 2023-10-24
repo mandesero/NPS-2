@@ -39,6 +39,7 @@ class NPS:
         self.logger.info("Start...")
 
         self.nodes = read_nodelist_from_file()
+
         self.logger.info("Take cluster nodes...")
 
         if os.path.isfile(self.input_file_path):

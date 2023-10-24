@@ -1,0 +1,4 @@
+logs
+scripts/nodes/*
+config/groups.txt
+config/hosts.txt

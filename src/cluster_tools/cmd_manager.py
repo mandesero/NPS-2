@@ -102,7 +102,7 @@ def send_cmd_to_cluster_node(node: Dict[str, Any], cmd: str) -> None:
         while not buff.endswith(
                 endswith_str
         ):  # Need to change name, or use the variable.
-            buff += node["ssh_chan"].recv(9999)
+            buff += node["ssh_chan"].recv(9999).decode()
 
 
 def exec_start_up_script(node: Dict[str, str]) -> None:
@@ -145,4 +145,4 @@ def send_mn_turn_on_cmd_to_cluster_node(node: Dict[str, Any]) -> None:
     node["ssh_chan"].send(cmd)
     buff = ""
     while not buff.endswith("mininet> "):
-        buff += node["ssh_chan"].recv(9999)
+        buff += node["ssh_chan"].recv(9999).decode()

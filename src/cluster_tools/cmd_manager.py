@@ -43,7 +43,7 @@ def send_support_scripts_to_cluster_node(node: Dict[str, str]) -> None:
     """
 
     # delete old scripts
-    del_old_support_scripts_cmd = f"rm {DST_SCRIPT_FOLDER} *"
+    del_old_support_scripts_cmd = f"rm {DST_SCRIPT_FOLDER}*"
     send_cmd_to_cluster_node(node, del_old_support_scripts_cmd)
 
     script_name = f"turn_on_script_for_{node['IP']}.py"

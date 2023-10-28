@@ -388,7 +388,7 @@ class MininetRunner( object ):
         host = customClass( HOSTS, opts.host )
         controller = lambda name: RemoteController(name, ip='10.0.2.201', port='6653')
         link = customClass( LINKS, opts.link )
-
+        listenPort = None
         if self.validate:
             self.validate( opts )
 
@@ -402,7 +402,7 @@ class MininetRunner( object ):
              isinstance( opts.wait, bool ) ):
             opts.wait = True
 
-        intfName = 'eth1'
+        intfName = 'enp0s3'
         info('*** Checking', intfName, '\n')
         checkIntf(intfName)
 
@@ -412,7 +412,7 @@ class MininetRunner( object ):
                   xterms=opts.xterms, autoSetMacs=opts.mac,
                   autoStaticArp=opts.arp, autoPinCpus=opts.pin,
                   waitConnected=opts.wait,
-                  listenPort=opts.listenport )
+                  listenPort=listenPort )
         
         for sw in mn.switches:
             if sw.name in sw_ext_intf:

@@ -93,7 +93,7 @@ class NPS:
         make_threaded(send_support_scripts_to_cluster_node, [], self.nodes)
         self.logger.info("Send scripts to nodes...")
 
-        if MALWARE_MODE_ON:
+        if False:
             # Turn ON infected hosts file monitor scripts on cluster nodes
             file_monitor_cmd = (
                     "python "

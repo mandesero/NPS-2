@@ -48,10 +48,10 @@ def send_support_scripts_to_cluster_node(node: Dict[str, str]) -> None:
 
     script_name = f"turn_on_script_for_{node['IP']}.py"
     send_turn_on_script_to_cluster_node(node, script_name)
-    send_script_to_cluster_node(node, "scapy_packet_gen.py")
-    send_script_to_cluster_node(node, "port_sniffer.py")
-    send_script_to_cluster_node(node, "file_monitor.py")
-    send_script_to_cluster_node(node, "worm_instance.py")
+    # send_script_to_cluster_node(node, "scapy_packet_gen.py")
+    # send_script_to_cluster_node(node, "port_sniffer.py")
+    # send_script_to_cluster_node(node, "file_monitor.py")
+    # send_script_to_cluster_node(node, "worm_instance.py")
 
 
 def send_turn_on_script_to_cluster_node(node: Dict[str, str], script_filename: str) -> None:

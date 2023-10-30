@@ -1,6 +1,6 @@
 from typing import Dict, List, Union, Any
 
-from config import FIRST_HOST_IP, BASE_INTERFACE
+from config import FIRST_HOST_IP
 from src.cluster_tools import get_next_ip_pool, get_next_ip
 from src.cluster_tools.mininet_cmd_manager import send_mininet_cmd_to_cluster_node
 

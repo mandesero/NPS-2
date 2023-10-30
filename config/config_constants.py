@@ -21,14 +21,14 @@ PYTHON_PATH = subprocess.run(['pipenv', '--venv'], capture_output=True, text=Tru
 # Flags
 
 DRAWING_FLAG = True
-SAVE_GRAPH_FIG_FLAG = False
+SAVE_GRAPH_FIG_FLAG = True
 
 # Constants
 
 FIRST_HOST_IP = "1.2.3.1"
 HOST_NETMASK = 16
 LINK_DELAY = 5
-NO_DELAY_FLAG = True
+NO_DELAY_FLAG = False
 
 # MALWARE MODE
 INFECTED_HOSTS_FILENAME = "infected_hosts.db"

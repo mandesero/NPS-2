@@ -44,11 +44,11 @@ def generate_mn_ns_script_with_custom_host_ip_auto(
 
         filepath = f"{SCRIPT_FOLDER_PATH}turn_on_script_for_{ip}.py"
         print(f"HOSTS: {hosts}")
-        # with open(filepath, "w") as file:
-        #     spec_group = groups["no_group"]
-        #
-        #     gen_mn_ns_script_by_template_with_custom_host_ip(
-        #         file, node, group, spec_group, leaves, hosts_net_services, hosts
-        #     )
+        with open(filepath, "w") as file:
+            spec_group = groups["no_group"]
+
+            gen_mn_ns_script_by_template_with_custom_host_ip(
+                file, node, group, spec_group, leaves, hosts_net_services, hosts
+            )
 
     return hosts

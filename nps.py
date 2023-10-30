@@ -55,7 +55,7 @@ class NPS:
             nx_graph, self.pos, node_services = get_networkx_graph(graph_data)
             if SAVE_GRAPH_FIG_FLAG:
                 nx.draw(nx_graph, pos=self.pos)
-                plt.savefig("graph.jpg")
+                plt.savefig("./files/graph.jpg")
         else:
             nx_graph, _, node_services = get_networkx_graph(graph_data)
 

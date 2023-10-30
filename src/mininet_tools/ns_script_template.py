@@ -78,7 +78,7 @@ def gen_mn_ns_script_by_template(
                 lambda s: s.rjust(len(s) + 8, ' '),
                 map(
                     lambda node: f"h{node} = self.addHost(name='h{node}')" \
-                        if node in leaves else f"s{node} = self.addSwitch(name='s{node}', protocols='OpenFlow13')",
+                        if node in leaves else f"s{node} = self.addSwitch(name='s{node}', protocols='OpenFlow13', dpid='{hex(node)[2:].upper().rjust(16, '0')}')",
                     node_group
                 )
             )
@@ -581,7 +581,7 @@ def gen_mn_ns_script_by_template_with_custom_host_ip(
                 lambda s: s.rjust(len(s) + 8, ' '),
                 map(
                     lambda v: f"h{v} = self.addHost(name='h{v}', ip='{hosts['h' + str(v)]['IP']}\{HOST_NETMASK}')" \
-                        if v in leaves else f"s{v} = self.addSwitch(name='s{v}', protocols='OpenFlow13')",
+                        if v in leaves else f"s{v} = self.addSwitch(name='s{v}', protocols='OpenFlow13', dpid='{hex(v)[2:].upper().rjust(16, '0')})",
                     group["vertexes"]
                 )
             )

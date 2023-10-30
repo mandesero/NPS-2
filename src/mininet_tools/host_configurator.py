@@ -63,18 +63,19 @@ def host_process_configurator_nodegroup(node, groups, CIDR_mask, leaves, hosts):
         if vertex in leaves:
             # reset config on host interface
             curr_host = "h" + str(vertex)
-            cmd = curr_host + " ifconfig " + curr_host + f"-eth0 0"
+            cmd = curr_host + " ifconfig " + curr_host + f"-enp0s3 0"
             send_mininet_cmd_to_cluster_node(node, cmd)
             # config new IP address on host interface
             cmd = (
                     curr_host
                     + " ifconfig "
                     + curr_host
-                    + f"-eth0 "
+                    + f"-enp0s3 "
                     + curr_host_ip
                     + "/"
                     + CIDR_mask
             )
+            print("!!!!!! ", cmd)
             send_mininet_cmd_to_cluster_node(node, cmd)
 
             host = {

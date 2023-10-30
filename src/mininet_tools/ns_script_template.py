@@ -564,7 +564,7 @@ def gen_mn_ns_script_by_template_with_custom_host_ip(
     file.write(''' \n''')
     file.write('''# ======================================================== \n''')
     file.write(''' \n''')
-    sw_ext_intf = {', '.join(map(lambda v: f'\'s{v}\'', spec_group['vertexes']))}
+    sw_ext_intf = ', '.join(map(lambda v: f'\'s{v}\'', spec_group['vertexes']))
     file.write(f"sw_ext_intf = [{sw_ext_intf}]")
     file.write(''' \n''')
     file.write(''' \n''')

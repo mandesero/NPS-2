@@ -44,4 +44,5 @@ CLI_PROMPT_STRING = ""
 
 # Other
 
-BASE_INTERFACE = "enp0s8"
+BASE_INTF_INTERFACE = "enp0s3"
+TURN_ON_FILE_TEMPLATE_PATH = f"{NPS_PATH}/files/turn_on_template.py"

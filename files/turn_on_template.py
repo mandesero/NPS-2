@@ -37,48 +37,9 @@ from mininet.examples.cluster import ( MininetCluster, RemoteHost,
                                        ClusterCleanup )
 from mininet.examples.clustercli import ClusterCLI
 
+# =========== Place to generated topology class ===========
 
-# ========================================================
-
-sw_ext_intf = ['s0', 's12']
-
-
-class MyTopology(Topo):
-    "Auto generated topology for this Mininet Node"
-
-    def __init__(self):
-        super().__init__()
-
-        "Add hosts and swiches"
-        s0 = self.addSwitch('s0', protocols='OpenFlow13')
-        s1 = self.addSwitch('s1', protocols='OpenFlow13')
-        s2 = self.addSwitch('s2', protocols='OpenFlow13')
-        s4 = self.addSwitch('s4', protocols='OpenFlow13')
-        s5 = self.addSwitch('s5', protocols='OpenFlow13')
-        h3 = self.addHost('h3', ip='1.2.3.1/16')
-        s6 = self.addSwitch('s6', protocols='OpenFlow13')
-        h11 = self.addHost('h11', ip='1.2.3.2/16')
-        h8 = self.addHost('h8', ip='1.2.3.3/16')
-        h9 = self.addHost('h9', ip='1.2.3.4/16')
-        h7 = self.addHost('h7', ip='1.2.3.5/16')
-        s10 = self.addSwitch('s10', protocols='OpenFlow13')
-        h15 = self.addHost('h15', ip='1.2.3.6/16')
-
-        "Add links"
-        self.addLink(s0, s1)
-        self.addLink(s0, s2)
-        self.addLink(s0, s4)
-        self.addLink(s0, s5)
-        self.addLink(s1, h3)
-        self.addLink(s2, s6)
-        self.addLink(s4, h11)
-        self.addLink(s5, h8)
-        self.addLink(s5, h9)
-        self.addLink(s5, h7)
-        self.addLink(s6, s10)
-        self.addLink(s10, h15)
-
-# ========================================================
+# =========================================================
 
 def checkIntf( intf ):
     "Make sure intf exists and is not configured."
@@ -402,7 +363,10 @@ class MininetRunner( object ):
              isinstance( opts.wait, bool ) ):
             opts.wait = True
 
-        intfName = 'enp0s3'
+# ============= Place to Intf interface name ==============
+
+
+# =========================================================
         info('*** Checking', intfName, '\n')
         checkIntf(intfName)
 

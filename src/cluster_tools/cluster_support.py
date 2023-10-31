@@ -15,10 +15,10 @@ def read_nodelist_from_file(nodelist_filepath: str = NODELIST_FILE_PATH) -> Dict
     :return: list of cluster nodes.
     :rtype: Dict[str, Dict[str, Any]]
     """
-
+    group = 0
     nodes = {}
     with open(nodelist_filepath, "r") as nodelist_file:
-        for i, file_line in enumerate(nodelist_file):
+        for file_line in nodelist_file:
             if not file_line.strip() or file_line.startswith("#"):
                 continue
 
@@ -32,11 +32,12 @@ def read_nodelist_from_file(nodelist_filepath: str = NODELIST_FILE_PATH) -> Dict
                     split_line[4],
                     split_line[5].strip(),
                 ),
-                "group": i,
+                "group": group,
                 "IP_pool": None,
                 "ssh": None,
                 "ssh_chan": None
             }
+            group +=1
 
     return nodes
 

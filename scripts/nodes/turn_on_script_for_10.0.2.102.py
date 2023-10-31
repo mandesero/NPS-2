@@ -40,7 +40,8 @@ from mininet.examples.clustercli import ClusterCLI
  
 # ======================================================== 
  
-sw_ext_intf = [{"'s0', 's12'"}] 
+sw_ext_intf = ['s0', 's12']
+sw_ext_intf_edges = [('s0', 's12')] 
  
 class MyTopology(Topo): 
     "Auto generated topology for this Mininet Node" 
@@ -49,7 +50,7 @@ class MyTopology(Topo):
         super().__init__() 
  
         "Add hosts and swiches" 
-        s12 = self.addSwitch(name='s12', protocols='OpenFlow13')
+        s12 = self.addSwitch(name='s12', protocols='OpenFlow13', dpid='000000000000000D')
         h16 = self.addHost(name='h16', ip='1.2.3.7\16')
         h13 = self.addHost(name='h13', ip='1.2.3.8\16')
         h14 = self.addHost(name='h14', ip='1.2.3.9\16')
@@ -381,9 +382,6 @@ class MininetRunner( object ):
              isinstance( opts.wait, bool ) ):
             opts.wait = True
 
-        intfName = 'enp0s3'
-        info('*** Checking', intfName, '\n')
-        checkIntf(intfName)
  
         mn = Net( topo=topo, 
                   switch=switch, host=host, controller=controller, link=link, 
@@ -393,11 +391,24 @@ class MininetRunner( object ):
                   waitConnected=opts.wait, 
                   listenPort=listenPort ) 
          
-        for sw in mn.switches: 
-            if sw.name in sw_ext_intf: 
-                info('*** Adding hardware interface', intfName, 'to switch', 
-                     sw.name, '\n') 
-                _intf = Intf(intfName, node=sw) 
+        count = 1
+        for s_from, s_to in sw_ext_intf_edges:
+            S = name = None
+            if s_from in [sw.name for sw in mn.switches]:
+                S = mn[s_from]
+                name = s_from
+            else:
+                S = mn[s_to]
+                name = s_to
+            if name == s_from:
+                S.cmd(f"ip link add {name}-gre{count} type gretap local 12.12.12.{count} remote 14.14.14.{count} ttl 64")
+                S.cmd(f"ip link set {name}-gre{count}")
+                Intf(f"{name}-gre{count}", node=S)
+            elif name == s_to:
+                S.cmd(f"ip link add {name}-gre{count} type gretap local 14.14.14.{count} remote 12.12.12.{count} ttl 64")
+                S.cmd(f"ip link set {name}-gre{count}")
+                Intf(f"{name}-gre{count}", node=S)
+            count += 1
  
         info('*** Note: you may need to reconfigure the interfaces for ' 
              'the Mininet hosts:\n', mn.hosts, '\n') 

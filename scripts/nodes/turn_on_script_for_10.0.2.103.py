@@ -40,8 +40,7 @@ from mininet.examples.clustercli import ClusterCLI
  
 # ======================================================== 
  
-sw_ext_intf = ['s0', 's12']
-sw_ext_intf_edges = [('s0', 's12')] 
+sw_ext_intf = ['s0', 's2', 's5'] 
  
 class MyTopology(Topo): 
     "Auto generated topology for this Mininet Node" 
@@ -50,30 +49,12 @@ class MyTopology(Topo):
         super().__init__() 
  
         "Add hosts and swiches" 
-        s0 = self.addSwitch(name='s0', protocols='OpenFlow13', dpid='0000000000000001')
-        s1 = self.addSwitch(name='s1', protocols='OpenFlow13', dpid='0000000000000002')
-        s2 = self.addSwitch(name='s2', protocols='OpenFlow13', dpid='0000000000000003')
-        s4 = self.addSwitch(name='s4', protocols='OpenFlow13', dpid='0000000000000005')
-        s5 = self.addSwitch(name='s5', protocols='OpenFlow13', dpid='0000000000000006')
-        h3 = self.addHost(name='h3', ip='1.2.3.1\16')
-        s6 = self.addSwitch(name='s6', protocols='OpenFlow13', dpid='0000000000000007')
-        h11 = self.addHost(name='h11', ip='1.2.3.2\16')
-        h8 = self.addHost(name='h8', ip='1.2.3.3\16')
-        h9 = self.addHost(name='h9', ip='1.2.3.4\16')
-        h7 = self.addHost(name='h7', ip='1.2.3.5\16')
-        s10 = self.addSwitch(name='s10', protocols='OpenFlow13', dpid='000000000000000B')
-        h15 = self.addHost(name='h15', ip='1.2.3.6\16')
+        s2 = self.addSwitch(name='s2', protocols='OpenFlow13', dpid='0000000000000002)
+        s6 = self.addSwitch(name='s6', protocols='OpenFlow13', dpid='0000000000000006)
+        s10 = self.addSwitch(name='s10', protocols='OpenFlow13', dpid='000000000000000A)
+        h15 = self.addHost(name='h15', ip='1.2.3.9\16')
         "Add links"
-        self.addLink(s0, s1, delay='5ms')
-        self.addLink(s0, s2, delay='5ms')
-        self.addLink(s0, s4, delay='5ms')
-        self.addLink(s0, s5, delay='5ms')
-        self.addLink(s1, h3, delay='5ms')
         self.addLink(s2, s6, delay='5ms')
-        self.addLink(s4, h11, delay='5ms')
-        self.addLink(s5, h8, delay='5ms')
-        self.addLink(s5, h9, delay='5ms')
-        self.addLink(s5, h7, delay='5ms')
         self.addLink(s6, s10, delay='5ms')
         self.addLink(s10, h15, delay='5ms') 
 # ======================================================== 
@@ -400,6 +381,9 @@ class MininetRunner( object ):
              isinstance( opts.wait, bool ) ):
             opts.wait = True
 
+        intfName = 'enp0s3'
+        info('*** Checking', intfName, '\n')
+        checkIntf(intfName)
  
         mn = Net( topo=topo, 
                   switch=switch, host=host, controller=controller, link=link, 
@@ -409,24 +393,11 @@ class MininetRunner( object ):
                   waitConnected=opts.wait, 
                   listenPort=listenPort ) 
          
-        count = 1
-        for s_from, s_to in sw_ext_intf_edges:
-            S = name = None
-            if s_from in [sw.name for sw in mn.switches]:
-                S = mn[s_from]
-                name = s_from
-            else:
-                S = mn[s_to]
-                name = s_to
-            if name == s_from:
-                S.cmd(f"ip link add {name}-gre{count} type gretap local 12.12.12.{count} remote 14.14.14.{count} ttl 64")
-                S.cmd(f"ip link set {name}-gre{count}")
-                Intf(f"{name}-gre{count}", node=S)
-            elif name == s_to:
-                S.cmd(f"ip link add {name}-gre{count} type gretap local 14.14.14.{count} remote 12.12.12.{count} ttl 64")
-                S.cmd(f"ip link set {name}-gre{count}")
-                Intf(f"{name}-gre{count}", node=S)
-            count += 1
+        for sw in mn.switches: 
+            if sw.name in sw_ext_intf: 
+                info('*** Adding hardware interface', intfName, 'to switch', 
+                     sw.name, '\n') 
+                _intf = Intf(intfName, node=sw) 
  
         info('*** Note: you may need to reconfigure the interfaces for ' 
              'the Mininet hosts:\n', mn.hosts, '\n') 

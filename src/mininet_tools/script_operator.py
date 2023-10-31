@@ -15,6 +15,7 @@ def split_graph_on_parts(nx_graph: nx.Graph, nodes: Dict[str, Dict[str, str]]):
 
     """
     number_of_parts = len(nodes)
+
     if number_of_parts == 1:
         (edgecuts, parts) = metis.part_graph(nx_graph, number_of_parts, recursive=True)
     else:
@@ -22,9 +23,7 @@ def split_graph_on_parts(nx_graph: nx.Graph, nodes: Dict[str, Dict[str, str]]):
             nx_graph, number_of_parts, contig=True, compress=True
         )
 
-    node_ids = {}
-    for i, id in enumerate(nx_graph.nodes()):
-        node_ids[i] = id
+    node_ids = {i: id for i, id in enumerate(nx_graph.nodes())}
 
     groups = {}
     for p in set(parts):
@@ -56,13 +55,9 @@ def split_graph_on_parts(nx_graph: nx.Graph, nodes: Dict[str, Dict[str, str]]):
             if edge[1] not in group["vertexes"]:
                 group["vertexes"].append(edge[1])
 
-    # copy_nodes = deepcopy(nodes)
-    # delete not used nodes
     for key, node in list(nodes.items()):
         if node["group"] not in set(parts):
             del nodes[key]
-
-    # print(groups)
 
     return groups, nodes
 

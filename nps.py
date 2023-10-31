@@ -67,6 +67,7 @@ class NPS:
         self.groups, self.nodes = split_graph_on_parts(
             nx_graph, self.nodes
         )
+        print(f'\n\n{self.nodes}\n\n')
 
         self.logger.info("Split network graph to clusters...")
 

@@ -382,6 +382,9 @@ class MininetRunner( object ):
              isinstance( opts.wait, bool ) ):
             opts.wait = True
 
+        intfName = 'enp0s3'
+        info('*** Checking', intfName, '\n')
+        checkIntf(intfName)
  
         mn = Net( topo=topo, 
                   switch=switch, host=host, controller=controller, link=link, 
@@ -391,24 +394,24 @@ class MininetRunner( object ):
                   waitConnected=opts.wait, 
                   listenPort=listenPort ) 
          
-        count = 1
+        ng_ip = {0: '10.0.2.101', 12: '10.0.2.102'}
+        count = 0
         for s_from, s_to in sw_ext_intf_edges:
-            S = name = None
-            if s_from in [sw.name for sw in mn.switches]:
-                S = mn[s_from]
-                name = s_from
-            else:
-                S = mn[s_to]
-                name = s_to
-            if name == s_from:
-                S.cmd(f"ip link add {name}-gre{count} type gretap local 12.12.12.{count} remote 14.14.14.{count} ttl 64")
-                S.cmd(f"ip link set {name}-gre{count}")
-                Intf(f"{name}-gre{count}", node=S)
-            elif name == s_to:
-                S.cmd(f"ip link add {name}-gre{count} type gretap local 14.14.14.{count} remote 12.12.12.{count} ttl 64")
-                S.cmd(f"ip link set {name}-gre{count}")
-                Intf(f"{name}-gre{count}", node=S)
             count += 1
+            S = name = None
+            if s_from in (sw.name for sw in mn.switches):
+                S = net[s_from]
+                name = s_from
+                other = s_to
+            elif s_to in (sw.name for sw in mn.switches):
+                S = net[s_to]
+                name = s_to
+                other = s_from
+            else:
+                continue
+                
+            S.cmd(f'ovs-vsctl add-port {name} {name}-gre{count} -- set interface {name}-gre{count}     type=gre options:remote_ip={ng_ip[int(other[1:])]}')
+            _ = Intf(f"{name}-gre{count}", node=S)
  
         info('*** Note: you may need to reconfigure the interfaces for ' 
              'the Mininet hosts:\n', mn.hosts, '\n') 

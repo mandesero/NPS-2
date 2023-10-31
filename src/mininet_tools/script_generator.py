@@ -31,6 +31,20 @@ def generate_mn_ns_script_with_custom_host_ip_auto(
     hosts = {}
     nodes = define_node_ip_pool(groups, leaves, nodes)
 
+    def ip_sw_node(sw):
+        g_id = None
+        for k, v in groups.items():
+            if k != "no_group" and sw in v['vertexes']:
+                g_id = k
+                break
+        for k, v in nodes.items():
+            if g_id == v['group']:
+                return k
+
+    no_group_ips = {}
+    for sw in groups["no_group"]["vertexes"]:
+        no_group_ips[sw] = ip_sw_node(sw)
+
     for ip, node in nodes.items():
         group = groups[node["group"]]
         curr_host_ip = node["IP_pool"]
@@ -46,9 +60,8 @@ def generate_mn_ns_script_with_custom_host_ip_auto(
         print(f"HOSTS: {hosts}")
         with open(filepath, "w") as file:
             spec_group = groups["no_group"]
-
             gen_mn_ns_script_by_template_with_custom_host_ip(
-                file, node, group, spec_group, leaves, hosts_net_services, hosts
+                file, node, group, spec_group, leaves, hosts_net_services, hosts, no_group_ips
             )
 
     return hosts
